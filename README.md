@@ -9,6 +9,7 @@ This is the code for our CVPR 2018 paper on CNN visual features generation using
 #### Setup Instructions
 
 ``conda install pytorch torchvision cudatoolkit -c pytorch``
+
 ``conda install -c conda-forge scikit-learn scipy tqdm timm tensorboard wandb matplotlib``
 
 #### How to reproduce the results:
