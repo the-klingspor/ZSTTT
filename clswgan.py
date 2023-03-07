@@ -8,14 +8,16 @@ import torch.autograd as autograd
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
-import math
-import util 
+
+import util
 import classifier
 import classifier2
-import sys
 import model
+import logger
 
 parser = argparse.ArgumentParser()
+
+# Dataset and paths
 parser.add_argument('--dataset', default='FLO', help='FLO')
 parser.add_argument('--dataroot', default='/BS/xian/work/cvpr18-code-release/data/', help='path to dataset')
 parser.add_argument('--matdataset', default=True, help='Data in matlab format')
@@ -26,6 +28,8 @@ parser.add_argument('--gzsl', action='store_true', default=False, help='enable g
 parser.add_argument('--preprocessing', action='store_true', default=False, help='enbale MinMaxScaler on visual features')
 parser.add_argument('--standardization', action='store_true', default=False)
 parser.add_argument('--validation', action='store_true', default=False, help='enable cross validation mode')
+
+# Model parameters
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
 parser.add_argument('--resSize', type=int, default=2048, help='size of visual features')
@@ -42,6 +46,8 @@ parser.add_argument('--classifier_lr', type=float, default=0.001, help='learning
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument('--cuda', action='store_true', default=False, help='enables cuda')
 parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
+
+# Training process
 parser.add_argument('--pretrain_classifier', default='', help="path to pretrain classifier (to continue training)")
 parser.add_argument('--netG', default='', help="path to netG (to continue training)")
 parser.add_argument('--netD', default='', help="path to netD (to continue training)")
@@ -55,6 +61,23 @@ parser.add_argument('--val_every', type=int, default=10)
 parser.add_argument('--start_epoch', type=int, default=0)
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--nclass_all', type=int, default=200, help='number of all classes')
+
+# wandb
+parser.add_argument('--log_online', action='store_true',
+                    help='Flag. If set, run metrics are stored online in addition to offline logging. Should generally '
+                         'be set.')
+parser.add_argument('--wandb_key', default='<your_api_key_here>', type=str, help='API key for W&B.')
+parser.add_argument('--project', default='Sample_Project', type=str,
+                    help='Name of the project - relates to W&B project names. In --savename default setting part of '
+                         'the savename.')
+parser.add_argument('--group', default='', type=str, help='Name of the group - relates to W&B group names - all runs '
+                                                          'with same setup but different seeds are logged into one '
+                                                          'group. In --savename default setting part of the savename. '
+                                                          'Name is created as model_dataset_group')
+parser.add_argument('--savename', default='group_plus_seed', type=str, help='Run savename - if default, the savename'
+                                                                            ' will comprise the project and group name '
+                                                                            '(see wandb_parameters()).')
+
 
 
 opt = parser.parse_args()
@@ -246,6 +269,11 @@ for epoch in range(opt.nepoch):
     mean_lossD /=  data.ntrain / opt.batch_size 
     print('[%d/%d] Loss_D: %.4f Loss_G: %.4f, Wasserstein_dist: %.4f, c_errG:%.4f'
               % (epoch, opt.nepoch, D_cost.data[0], G_cost.data[0], Wasserstein_D.data[0], c_errG.data[0]))
+    dict_to_log = {"loss_D": D_cost.data[0],
+                   "loss_G": G_cost.data[0],
+                   "wasserstein_D": Wasserstein_D.data[0],
+                   "clf_error_G": c_errG.data[0]}
+
 
     # evaluate the model, set G to evaluation mode
     netG.eval()
@@ -257,13 +285,19 @@ for epoch in range(opt.nepoch):
         nclass = opt.nclass_all
         cls = classifier2.CLASSIFIER(train_X, train_Y, data, nclass, opt.cuda, opt.classifier_lr, 0.5, 25, opt.syn_num, True)
         print('unseen=%.4f, seen=%.4f, h=%.4f' % (cls.acc_unseen, cls.acc_seen, cls.H))
+        dict_to_log["unseen_accuracy"] = cls.acc_unseen
+        dict_to_log["seen_accuracy"] = cls.acc_seen
+        dict_to_log["harmonic_mean"] = cls.H
     # Zero-shot learning
     else:
         syn_feature, syn_label = generate_syn_feature(netG, data.unseenclasses, data.attribute, opt.syn_num) 
         cls = classifier2.CLASSIFIER(syn_feature, util.map_label(syn_label, data.unseenclasses), data, data.unseenclasses.size(0), opt.cuda, opt.classifier_lr, 0.5, 25, opt.syn_num, False)
         acc = cls.acc
         print('unseen class accuracy= ', acc)
-         
+        dict_to_log["accuracy"] = acc
+
+    if opt.log_online:
+        logger.log(dict_to_log)
     # reset G to training mode
     netG.train()
 
