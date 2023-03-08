@@ -20,10 +20,10 @@ def setup_logger(opt):
 
 def make_group_name(opt):
     if opt.dataset != '':
-        group_name = opt.dataset + "_"
+        group_name = opt.dataset
     else:
         group_name = ''
-    group_name += opt.model
+    # group_name += opt.model
     if opt.group != '':
         group_name += "_" + opt.group
     return group_name

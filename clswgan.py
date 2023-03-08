@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser()
 
 # Dataset and paths
 parser.add_argument('--dataset', default='FLO', help='FLO')
-parser.add_argument('--dataroot', default='/BS/xian/work/cvpr18-code-release/data/', help='path to dataset')
+parser.add_argument('--dataroot', default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/', help='path to dataset')
 parser.add_argument('--matdataset', default=True, help='Data in matlab format')
 parser.add_argument('--image_embedding', default='res101')
 parser.add_argument('--class_embedding', default='att')
@@ -77,11 +77,14 @@ parser.add_argument('--group', default='', type=str, help='Name of the group - r
 parser.add_argument('--savename', default='group_plus_seed', type=str, help='Run savename - if default, the savename'
                                                                             ' will comprise the project and group name '
                                                                             '(see wandb_parameters()).')
-
+parser.add_argument('--name_seed', type=str, default=0, help="Randomly generated code as name for the run.")
 
 
 opt = parser.parse_args()
 print(opt)
+
+if opt.log_online:
+    logger.setup_logger(opt)
 
 try:
     os.makedirs(opt.outf)

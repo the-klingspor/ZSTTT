@@ -1,9 +1,8 @@
-#import h5py
+import h5py
 import numpy as np
 import scipy.io as sio
 import torch
 from sklearn import preprocessing
-import sys
 
 def weights_init(m):
     classname = m.__class__.__name__
