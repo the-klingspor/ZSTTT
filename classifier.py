@@ -101,10 +101,11 @@ class CLASSIFIER:
         predicted_label = torch.LongTensor(test_label.size())
         for i in range(0, ntest, self.batch_size):
             end = min(ntest, start+self.batch_size)
-            if self.cuda:
-                output = self.model(Variable(test_X[start:end].cuda(), volatile=True)) 
-            else:
-                output = self.model(Variable(test_X[start:end], volatile=True)) 
+            with torch.no_grad():
+                if self.cuda:
+                    output = self.model(Variable(test_X[start:end].cuda()))
+                else:
+                    output = self.model(Variable(test_X[start:end]))
             _, predicted_label[start:end] = torch.max(output.data, 1)
             start = end
 

@@ -1,4 +1,3 @@
-from __future__ import print_function
 import argparse
 import os
 import random
@@ -125,7 +124,7 @@ cls_criterion = nn.NLLLoss()
 input_res = torch.FloatTensor(opt.batch_size, opt.resSize)
 input_att = torch.FloatTensor(opt.batch_size, opt.attSize)
 noise = torch.FloatTensor(opt.batch_size, opt.nz)
-one = torch.FloatTensor([1])
+one = torch.tensor(1, dtype=torch.float)
 mone = one * -1
 input_label = torch.LongTensor(opt.batch_size)
 
@@ -160,7 +159,8 @@ def generate_syn_feature(netG, classes, attribute, num):
         iclass_att = attribute[iclass]
         syn_att.copy_(iclass_att.repeat(num, 1))
         syn_noise.normal_(0, 1)
-        output = netG(Variable(syn_noise, volatile=True), Variable(syn_att, volatile=True))
+        with torch.no_grad():
+            output = netG(Variable(syn_noise), Variable(syn_att))
         syn_feature.narrow(0, i*num, num).copy_(output.data.cpu())
         syn_label.narrow(0, i*num, num).fill_(iclass)
 
@@ -271,11 +271,11 @@ for epoch in range(opt.nepoch):
     mean_lossG /=  data.ntrain / opt.batch_size 
     mean_lossD /=  data.ntrain / opt.batch_size 
     print('[%d/%d] Loss_D: %.4f Loss_G: %.4f, Wasserstein_dist: %.4f, c_errG:%.4f'
-              % (epoch, opt.nepoch, D_cost.data[0], G_cost.data[0], Wasserstein_D.data[0], c_errG.data[0]))
-    dict_to_log = {"loss_D": D_cost.data[0],
-                   "loss_G": G_cost.data[0],
-                   "wasserstein_D": Wasserstein_D.data[0],
-                   "clf_error_G": c_errG.data[0]}
+              % (epoch, opt.nepoch, D_cost.item(), G_cost.item(), Wasserstein_D.item(), c_errG.item()))
+    dict_to_log = {"loss_D": D_cost.item(),
+                   "loss_G": G_cost.item(),
+                   "wasserstein_D": Wasserstein_D.item(),
+                   "clf_error_G": c_errG.item()}
 
 
     # evaluate the model, set G to evaluation mode
