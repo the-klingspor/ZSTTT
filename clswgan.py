@@ -8,7 +8,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 
-from utils import util
+import util
 import classifier
 import classifier2
 import model

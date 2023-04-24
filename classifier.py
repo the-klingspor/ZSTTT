@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
-from utils import util
 
+import util
 
 class CLASSIFIER:
-    # train_Y is integer
+    # train_Y is interger 
     def __init__(self, _train_X, _train_Y,  _nclass, _input_dim, _cuda, _lr=0.001, _beta1=0.5, _nepoch=20, _batch_size=100, pretrain_classifer=''):
         self.train_X =  _train_X 
         self.train_Y = _train_Y 

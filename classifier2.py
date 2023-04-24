@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
-from utils import util
-
+import util
 
 class CLASSIFIER:
     # train_Y is interger 
