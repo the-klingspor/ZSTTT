@@ -56,4 +56,4 @@ class RotationDataset(Dataset):
             image = self.transform(image)
             rotated_image = self.transform(rotated_image)
 
-        return image, rotated_image, rotation_angle, label
+        return image, rotated_image, label, rotation_angle
