@@ -3,7 +3,7 @@ import torch
 
 
 class RotationNet(torch.nn.Module):
-    def __init__(self, num_classes, num_rotation_classes=4, architecture='resnet101'):
+    def __init__(self, num_classes, num_rotation_classes=4, architecture='resnet50'):
         super().__init__()
 
         # Load the pre-trained ResNet101 model from timm

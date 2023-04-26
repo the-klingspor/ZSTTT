@@ -65,7 +65,7 @@ parser.add_argument('--nclass_all', type=int, default=200, help='number of all c
 parser.add_argument('--log_online', action='store_true',
                     help='Flag. If set, run metrics are stored online in addition to offline logging. Should generally '
                          'be set.')
-parser.add_argument('--wandb_key', default='<your_api_key_here>', type=str, help='API key for W&B.')
+parser.add_argument('--wandb_key', default='65954b19f28cc0f35372188d50be8f11cdb79321', type=str, help='API key for W&B.')
 parser.add_argument('--project', default='Sample_Project', type=str,
                     help='Name of the project - relates to W&B project names. In --savename default setting part of '
                          'the savename.')
