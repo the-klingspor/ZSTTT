@@ -14,6 +14,8 @@ import classifier2
 import model
 import logger
 
+from extract_features import get_zsl_data_collection
+
 parser = argparse.ArgumentParser()
 
 # Dataset and paths
@@ -27,6 +29,7 @@ parser.add_argument('--gzsl', action='store_true', default=False, help='enable g
 parser.add_argument('--preprocessing', action='store_true', default=False, help='enbale MinMaxScaler on visual features')
 parser.add_argument('--standardization', action='store_true', default=False)
 parser.add_argument('--validation', action='store_true', default=False, help='enable cross validation mode')
+parser.add_argument('--extract_features', action='store_true', default=False, help='extract features using a given backbone')
 
 # Model parameters
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
@@ -104,7 +107,11 @@ if torch.cuda.is_available() and not opt.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
 # load data
-data = util.DATA_LOADER(opt)
+if opt.extract_features:
+    data_collection = get_zsl_data_collection(opt)
+    data = util.DATA_LOADER(opt, data_collection)
+else:
+    data = util.DATA_LOADER(opt)
 print("# of training samples: ", data.ntrain)
 
 # initialize generator and discriminator

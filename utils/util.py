@@ -32,12 +32,12 @@ class Logger(object):
         f.close()
 
 class DATA_LOADER(object):
-    def __init__(self, opt):
+    def __init__(self, opt, data=None):
         if opt.matdataset:
             if opt.dataset == 'imageNet1K':
                 self.read_matimagenet(opt)
             else:
-                self.read_matdataset(opt)
+                self.read_matdataset(opt, data)
         self.index_in_epoch = 0
         self.epochs_completed = 0
                 
@@ -114,19 +114,30 @@ class DATA_LOADER(object):
         self.ntest_class = self.unseenclasses.size(0)
 
 
-    def read_matdataset(self, opt):
-        matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.image_embedding + ".mat")
-        feature = matcontent['features'].T
-        label = matcontent['labels'].astype(int).squeeze() - 1
-        matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.class_embedding + "_splits.mat")
-        # numpy array index starts from 0, matlab starts from 1
-        trainval_loc = matcontent['trainval_loc'].squeeze() - 1
-        train_loc = matcontent['train_loc'].squeeze() - 1
-        val_unseen_loc = matcontent['val_loc'].squeeze() - 1
-        test_seen_loc = matcontent['test_seen_loc'].squeeze() - 1
-        test_unseen_loc = matcontent['test_unseen_loc'].squeeze() - 1
+    def read_matdataset(self, opt, data=None):
+        if data:
+            #images = data['images']
+            feature = data['features']
+            label = data['labels']
+            trainval_loc = data['trainval_loc']
+            train_loc = data['train_loc']
+            val_unseen_loc = data['val_loc']
+            test_seen_loc = data['test_seen_loc']
+            test_unseen_loc = data['test_unseen_loc']
+            self.attribute = torch.from_numpy(data['attributes']).float()
+        else:
+            matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.image_embedding + ".mat")
+            feature = matcontent['features'].T
+            label = matcontent['labels'].astype(int).squeeze() - 1
+            matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.class_embedding + "_splits.mat")
+            # numpy array index starts from 0, matlab starts from
+            trainval_loc = matcontent['trainval_loc'].squeeze() - 1
+            train_loc = matcontent['train_loc'].squeeze() - 1
+            val_unseen_loc = matcontent['val_loc'].squeeze() - 1
+            test_seen_loc = matcontent['test_seen_loc'].squeeze() - 1
+            test_unseen_loc = matcontent['test_unseen_loc'].squeeze() - 1
     
-        self.attribute = torch.from_numpy(matcontent['att'].T).float() 
+            self.attribute = torch.from_numpy(matcontent['att'].T).float()
         if not opt.validation:
             if opt.preprocessing:
                 if opt.standardization:
