@@ -30,14 +30,14 @@ class RotationDataset(Dataset):
                 parts = line.strip().split('.')
                 class_idx = int(parts[0])
                 class_name = parts[1]
-                self.class_map[class_name] = class_idx
+                self.class_map[class_name] = class_idx - 1
                 self.num_classes += 1
 
         # Read image filenames and labels for seen classes
         # todo differentiate based on input string
-        trainvalclasses = os.path.join(split_dir, class_txt)
+        classes = os.path.join(split_dir, class_txt)
 
-        with open(trainvalclasses, 'r') as f:
+        with open(classes, 'r') as f:
             lines = f.readlines()
             for line in lines:
                 class_name = line.strip()
@@ -48,7 +48,6 @@ class RotationDataset(Dataset):
                 short_class_name = class_name.split('.')[1]
                 class_labels = len(class_images) * [self.class_map[short_class_name]]
                 self.labels += class_labels
-
 
     def __len__(self):
         return len(self.images)
