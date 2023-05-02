@@ -2,6 +2,7 @@ import h5py
 import numpy as np
 import scipy.io as sio
 import torch
+
 from sklearn import preprocessing
 
 def weights_init(m):
@@ -124,7 +125,8 @@ class DATA_LOADER(object):
             val_unseen_loc = data['val_loc']
             test_seen_loc = data['test_seen_loc']
             test_unseen_loc = data['test_unseen_loc']
-            self.attribute = torch.from_numpy(data['attributes']).float()
+            matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.class_embedding + "_splits.mat")
+            self.attribute = torch.from_numpy(matcontent['att'].T).float()
         else:
             matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.image_embedding + ".mat")
             feature = matcontent['features'].T
