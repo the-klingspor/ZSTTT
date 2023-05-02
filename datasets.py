@@ -24,13 +24,13 @@ class RotationDataset(Dataset):
 
         with open(allclasses, 'r') as f:
             lines = f.readlines()
-            for line in lines:
+            for idx, line in enumerate(lines):
                 full_class_name = line.strip()
                 self.class_names.append(full_class_name)
                 parts = line.strip().split('.')
-                class_idx = int(parts[0])
+                class_idx = idx
                 class_name = parts[1]
-                self.class_map[class_name] = class_idx - 1
+                self.class_map[class_name] = class_idx
                 self.num_classes += 1
 
         # Read image filenames and labels for seen classes
