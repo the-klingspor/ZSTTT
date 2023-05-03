@@ -104,8 +104,6 @@ if __name__ == '__main__':
     optimizer = torch.optim.SGD(model.parameters(), lr=opt.learning_rate, momentum=opt.momentum,
                                 weight_decay=opt.weight_decay)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=0.1)
-    #scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=learning_rate, epochs=num_epochs,
-    #                                    steps_per_epoch=len(train_loader), pct_start=0.1)
 
     print("Number of training samples: ", len(train_dataset))
     print("Number of validation samples: ", len(valid_dataset))
@@ -143,7 +141,6 @@ if __name__ == '__main__':
             # Backward pass
             loss.backward()
             optimizer.step()
-            #scheduler.step()
 
             # Update the loss and accuracy variables
             train_loss += loss.item()
@@ -223,9 +220,4 @@ if __name__ == '__main__':
               f'valid rot acc={valid_rot_accuracy:5.3f}')
 
     # Save the model
-    torch.save(model.state_dict(), "/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/resnet50.pth")
-
-    # ToDo: remove loading test of model weights
-    #model = RotationNet(num_classes=full_dataset.num_classes, architecture=opt.architecture)
-    #model.load_state_dict(torch.load("data/CUB/resnet50_cub.pth"))
-
+    torch.save(model.state_dict(), "/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/resnet50_cub.pth")
