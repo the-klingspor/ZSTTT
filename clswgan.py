@@ -8,13 +8,13 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 
-import util
 import classifier
 import classifier2
 import model
 import logger
 
 from extract_features import get_zsl_data_collection
+from utils import util
 
 parser = argparse.ArgumentParser()
 
@@ -30,6 +30,11 @@ parser.add_argument('--preprocessing', action='store_true', default=False, help=
 parser.add_argument('--standardization', action='store_true', default=False)
 parser.add_argument('--validation', action='store_true', default=False, help='enable cross validation mode')
 parser.add_argument('--extract_features', action='store_true', default=False, help='extract features using a given backbone')
+parser.add_argument('--backbone_path', type=str, default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/resnet50_cub.pth')
+parser.add_argument('--data_path', type=str, default='/mnt/qb/akata/jstrueber72/datasets/CUB/')
+parser.add_argument('--splitdir', type=str, default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/')
+parser.add_argument('--class_txt', type=str, default='trainvalclasses.txt')
+parser.add_argument('--attribute_path', type=str, default='/mnt/qb/akata/jstrueber72/datasets/CUB/attributes/class_attribute_labels_continuous.txt')
 
 # Model parameters
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
@@ -46,8 +51,10 @@ parser.add_argument('--cls_weight', type=float, default=1, help='weight of the c
 parser.add_argument('--lr', type=float, default=0.0001, help='learning rate to train GANs ')
 parser.add_argument('--classifier_lr', type=float, default=0.001, help='learning rate to train softmax classifier')
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
+parser.add_argument('--image_size', type=int, default=336)
 parser.add_argument('--cuda', action='store_true', default=False, help='enables cuda')
 parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
+parser.add_argument('--architecture', type=str, default="resnet50")
 
 # Training process
 parser.add_argument('--pretrain_classifier', default='', help="path to pretrain classifier (to continue training)")
@@ -63,6 +70,9 @@ parser.add_argument('--val_every', type=int, default=10)
 parser.add_argument('--start_epoch', type=int, default=0)
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--nclass_all', type=int, default=200, help='number of all classes')
+parser.add_argument('--ttt', type=str, default=None, help='The type of test-time training to use. If None, use no TTT. '
+                                                          'Valid parameters are {None (default), "ttt", "memo" and '
+                                                          '"disco"')
 
 # wandb
 parser.add_argument('--log_online', action='store_true',
@@ -109,7 +119,7 @@ if torch.cuda.is_available() and not opt.cuda:
 # load data
 if opt.extract_features:
     data_collection = get_zsl_data_collection(opt)
-    data = util.DATA_LOADER(opt, data_collection)
+    data = util.DATA_LOADER(opt, data=data_collection)
 else:
     data = util.DATA_LOADER(opt)
 print("# of training samples: ", data.ntrain)
@@ -311,3 +321,14 @@ for epoch in range(opt.nepoch):
     # reset G to training mode
     netG.train()
 
+final_dict = {}
+
+if opt.gzsl:
+    final_dict["unseen_accuracy_final"] = dict_to_log["unseen_accuracy"]
+    final_dict["seen_accuracy_final"] = dict_to_log["seen_accuracy"]
+    final_dict["harmonic_mean_final"] = dict_to_log["harmonic_mean"]
+else:
+    final_dict["accuracy_final"] = dict_to_log["accuracy"]
+
+if opt.log_online:
+    logger.log(dict_to_log)
