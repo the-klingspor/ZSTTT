@@ -9,7 +9,7 @@ from PIL import Image
 
 class RotationDataset(Dataset):
     def __init__(self, root_dir, split_dir="/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/",
-                 class_txt="trainvalclasses.txt", transform=None):
+                 class_txt="trainvalclasses.txt", transform=None, include_txt=None):
         self.root_dir = root_dir
         self.transform = transform
         self.images = []
@@ -48,6 +48,19 @@ class RotationDataset(Dataset):
                 short_class_name = class_name.split('.')[1]
                 class_labels = len(class_images) * [self.class_map[short_class_name]]
                 self.labels += class_labels
+
+
+        # Use file to only include certain images in the dataset - eg to exclude train images from the backbone
+        if include_txt:
+            with open(include_txt, 'r') as file:
+                include_list = [line.strip() for line in file.readlines()]
+
+            # Filter the images based on the include_list
+            self.images = [image for image, label in zip(self.images, self.labels) if image in include_list]
+
+            # Get the corresponding labels for the filtered images
+            self.labels = [label for image, label in zip(self.images, self.labels) if image in include_list]
+
 
     def __len__(self):
         return len(self.images)

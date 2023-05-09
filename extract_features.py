@@ -2,7 +2,7 @@ import torch
 import torchvision.transforms as transforms
 import argparse
 import numpy as np
-import timm
+import os
 
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -21,6 +21,7 @@ parser.add_argument('--data_path', type=str, default='/mnt/qb/akata/jstrueber72/
 parser.add_argument('--splitdir', type=str, default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/')
 parser.add_argument('--class_txt', type=str, default='trainvalclasses.txt')
 parser.add_argument('--attribute_path', type=str, default='/mnt/qb/akata/jstrueber72/datasets/CUB/attributes/class_attribute_labels_continuous.txt')
+parser.add_argument('--include_txt', type=str, default=None)
 
 # Hyper parameters
 parser.add_argument('--image_size', type=int, default=336)
@@ -45,7 +46,7 @@ def extract_features(opt, model=None):
     ])
 
     # Create the data loaders for training and validation
-    dataset = RotationDataset(opt.data_path, opt.splitdir, opt.class_txt, transform=transform)
+    dataset = RotationDataset(opt.data_path, opt.splitdir, opt.class_txt, transform=transform, include_txt=opt.include_txt)
     loader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=4)
 
     # Load the pre-trained ResNet101 model from timm with additional rotation head
@@ -109,6 +110,8 @@ def get_zsl_data_collection(opt):
     # Classes used for training
     print("Collecting training data")
     opt.class_txt = 'trainclasses1.txt'
+    if opt.include_txt:
+        opt.include_txt = os.path.join(opt.data_path, 'unseen_train.txt')
     train_features, train_labels, train_images = extract_features(opt)
     data['images'] = train_images
     data['features'] = train_features
@@ -138,6 +141,7 @@ def get_zsl_data_collection(opt):
     # Classes used for testing
     print("Collecting test data")
     opt.class_txt = 'testclasses.txt'
+    opt.include_txt = None
     test_features, test_labels, test_images = extract_features(opt)
     data['images'] = np.concatenate([data['images'], test_images])
     data['features'] = np.concatenate([data['features'], test_features])

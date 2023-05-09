@@ -2,6 +2,7 @@ import torch
 import torchvision.transforms as transforms
 import torch.optim.lr_scheduler as lr_scheduler
 import argparse
+import os
 
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
@@ -16,7 +17,8 @@ parser = argparse.ArgumentParser()
 #todo: write help statements
 
 # Dataset and paths
-parser.add_argument('--dataset', default='CUB', help='CUB')
+parser.add_argument('--dataset', default='CUB', help='')
+parser.add_argument('--dataset_path', default='/mnt/qb/akata/jstrueber72/datasets/CUB/', help='')
 
 # Hyper parameters
 parser.add_argument('--architecture', type=str, default="resnet50")
@@ -46,9 +48,16 @@ parser.add_argument('--savename', default='group_plus_seed', type=str, help='Run
                                                                             '(see wandb_parameters()).')
 parser.add_argument('--name_seed', type=str, default=0, help="Randomly generated code as name for the run.")
 parser.add_argument('--outname', help='folder to output data and model checkpoints')
+parser.add_argument('--save_valid', action='store_true')
+parser.add_argument('--save_model', action='store_true')
 
 
 if __name__ == '__main__':
+    # Set the seed for reproducibility
+    seed = 4242
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
     opt = parser.parse_args()
     if opt.log_online:
         logger.setup_logger(opt)
@@ -79,12 +88,20 @@ if __name__ == '__main__':
     ])
 
     # Create the data loaders for training and validation
-    full_dataset = RotationDataset('/mnt/qb/akata/jstrueber72/datasets/CUB/', transform=train_transform)
+    full_dataset = RotationDataset(opt.dataset_path, transform=train_transform, class_txt="trainvalclasses.txt")
 
-    train_size = int(0.8 * len(full_dataset))
+    train_size = int(0.5 * len(full_dataset))
     valid_size = len(full_dataset) - train_size
     train_dataset, valid_dataset = torch.utils.data.random_split(full_dataset, [train_size, valid_size])
     valid_dataset.transform = valid_transform
+
+    # Save paths to images used for validation to have unspoiled set for GZSL later
+    if opt.save_valid:
+        file_name = os.path.join(opt.dataset_path, "unseen_train.txt")
+        with open(file_name, 'w') as file:
+            images = [valid_dataset.dataset.images[i] for i in valid_dataset.indices]
+            for img_name in images:
+                    file.write(img_name + '\n')
 
     train_loader = DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4)
     valid_loader = DataLoader(valid_dataset, batch_size=opt.batch_size, shuffle=False, num_workers=4)
@@ -220,4 +237,5 @@ if __name__ == '__main__':
               f'valid rot acc={valid_rot_accuracy:5.3f}')
 
     # Save the model
-    torch.save(model.state_dict(), "/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/resnet50_cub.pth")
+    if opt.save_model:
+        torch.save(model.state_dict(), "/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/resnet50_cub_50_50.pth")

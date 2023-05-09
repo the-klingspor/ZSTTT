@@ -39,6 +39,7 @@ parser.add_argument('--data_path', type=str, default='/mnt/qb/akata/jstrueber72/
 parser.add_argument('--splitdir', type=str, default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/')
 parser.add_argument('--class_txt', type=str, default='trainvalclasses.txt')
 parser.add_argument('--attribute_path', type=str, default='/mnt/qb/akata/jstrueber72/datasets/CUB/attributes/class_attribute_labels_continuous.txt')
+parser.add_argument('--include_txt', type=str, default='unseen_train.txt')
 
 # Model parameters
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
