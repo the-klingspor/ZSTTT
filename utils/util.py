@@ -117,15 +117,17 @@ class DATA_LOADER(object):
 
     def read_matdataset(self, opt, data=None):
         if data:
-            #images = data['images']
             feature = data['features']
+            self.feature = feature
             label = data['labels']
+            self.label = label
             trainval_loc = data['trainval_loc']
             train_loc = data['train_loc']
             val_unseen_loc = data['val_loc']
             test_seen_loc = data['test_seen_loc']
             test_unseen_loc = data['test_unseen_loc']
             matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.class_embedding + "_splits.mat")
+            self.images = data['images']
             self.attribute = torch.from_numpy(matcontent['att'].T).float()
         else:
             matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.image_embedding + ".mat")
