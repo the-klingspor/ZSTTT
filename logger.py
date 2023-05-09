@@ -29,8 +29,11 @@ def make_group_name(opt):
     return group_name
 
 
-def log(dict_to_log):
-    wandb.log(dict_to_log)
+def log(dict_to_log, step=None):
+    if step:
+        wandb.log(dict_to_log, step)
+    else:
+        wandb.log(dict_to_log)
 
 
 def save(model, image_extractor, name, args):
