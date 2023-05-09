@@ -7,6 +7,7 @@ import torch.autograd as autograd
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
+from PIL import Image
 
 import classifier
 import classifier2
@@ -14,7 +15,10 @@ import model
 import logger
 
 from extract_features import get_zsl_data_collection
-from utils import util
+from utils import util, visualization
+from utils.rotation_net import RotationNet
+from test_time_training.rotation_ttt import rotation_ttt_loop
+from test_time_training.utils import ttt_epoch
 
 parser = argparse.ArgumentParser()
 
@@ -35,6 +39,7 @@ parser.add_argument('--data_path', type=str, default='/mnt/qb/akata/jstrueber72/
 parser.add_argument('--splitdir', type=str, default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/')
 parser.add_argument('--class_txt', type=str, default='trainvalclasses.txt')
 parser.add_argument('--attribute_path', type=str, default='/mnt/qb/akata/jstrueber72/datasets/CUB/attributes/class_attribute_labels_continuous.txt')
+parser.add_argument('--include_txt', type=str, default='unseen_train.txt')
 
 # Model parameters
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
@@ -43,7 +48,7 @@ parser.add_argument('--resSize', type=int, default=2048, help='size of visual fe
 parser.add_argument('--attSize', type=int, default=1024, help='size of semantic features')
 parser.add_argument('--nz', type=int, default=312, help='size of the latent z vector')
 parser.add_argument('--ngh', type=int, default=4096, help='size of the hidden units in generator')
-parser.add_argument('--ndh', type=int, default=1024, help='size of the hidden units in discriminator')
+parser.add_argument('--ndh', type=int, default=1024, help='size of the hidden units in discrimindator')
 parser.add_argument('--nepoch', type=int, default=2000, help='number of epochs to train for')
 parser.add_argument('--critic_iter', type=int, default=5, help='critic iteration, following WGAN-GP')
 parser.add_argument('--lambda1', type=float, default=10, help='gradient penalty regularizer, following WGAN-GP')
@@ -55,6 +60,11 @@ parser.add_argument('--image_size', type=int, default=336)
 parser.add_argument('--cuda', action='store_true', default=False, help='enables cuda')
 parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
 parser.add_argument('--architecture', type=str, default="resnet50")
+parser.add_argument('--ttt_n_loops', type=int, default=1, help='the number of test-time iterations on each sample')
+parser.add_argument('--ttt_learning_rate', type=float, default=5e-3, help='learning rate for TTT')
+parser.add_argument('--ttt_momentum', type=float, default=0, help='momentum for TTT')
+parser.add_argument('--ttt_weight_decay', type=float, default=0, help='weight decay for TTT')
+parser.add_argument('--ttt_batch_size', type=int, default=16, help='number of augmented copies for TTT')
 
 # Training process
 parser.add_argument('--pretrain_classifier', default='', help="path to pretrain classifier (to continue training)")
@@ -120,6 +130,8 @@ if torch.cuda.is_available() and not opt.cuda:
 if opt.extract_features:
     data_collection = get_zsl_data_collection(opt)
     data = util.DATA_LOADER(opt, data=data_collection)
+    save_dir = os.path.join(opt.dataroot, opt.dataset, "original_features.pdf")
+    visualization.embed_and_plot(data, save_dir=save_dir)
 else:
     data = util.DATA_LOADER(opt)
 print("# of training samples: ", data.ntrain)
@@ -223,6 +235,7 @@ pretrain_cls = classifier.CLASSIFIER(data.train_feature, util.map_label(data.tra
 for p in pretrain_cls.model.parameters(): # set requires_grad to False
     p.requires_grad = False
 
+dict_to_log = {}
 for epoch in range(opt.nepoch):
     FP = 0 
     mean_lossD = 0
@@ -331,4 +344,50 @@ else:
     final_dict["accuracy_final"] = dict_to_log["accuracy"]
 
 if opt.log_online:
-    logger.log(dict_to_log)
+    print(final_dict)
+    logger.log(final_dict)
+
+if opt.ttt and opt.extract_features:
+    if opt.ttt == 'ttt':
+        ttt_loop = rotation_ttt_loop
+    elif opt.ttt == 'memo':
+        ttt_loop = None
+        raise NotImplementedError()
+    elif opt.ttt == 'disco':
+        ttt_loop = None
+        raise NotImplementedError()
+    else:
+        assert False, "Wrong TTT mode chosen - choose one of {ttt, memo, disco}"
+
+    model = RotationNet(num_classes=opt.nclass_all, architecture=opt.architecture)
+    model.load_state_dict(torch.load(opt.backbone_path))
+    # Apply rotation TTT to each image
+    ttt_features, ttt_losses = ttt_epoch(ttt_loop, model, data, opt)
+    save_dir = os.path.join(opt.dataroot, opt.dataset, opt.ttt + "_features.pdf")
+    visualization.embed_and_plot(data, save_dir=save_dir)
+
+    data_collection['features'] = ttt_features
+    ttt_data = util.DATA_LOADER(opt, data=data_collection)
+
+    if opt.gzsl:
+        syn_feature, syn_label = generate_syn_feature(netG, ttt_data.unseenclasses, ttt_data.attribute, opt.syn_num)
+        train_X = torch.cat((data.train_feature, syn_feature), 0)
+        train_Y = torch.cat((data.train_label, syn_label), 0)
+        nclass = opt.nclass_all
+        cls = classifier2.CLASSIFIER(train_X, train_Y, ttt_data, nclass, opt.cuda, opt.classifier_lr, 0.5, 25, opt.syn_num, True)
+        print('unseen=%.4f, seen=%.4f, h=%.4f' % (cls.acc_unseen, cls.acc_seen, cls.H))
+        final_dict["unseen_accuracy_final"] = cls.acc_unseen
+        final_dict["seen_accuracy_final"] = cls.acc_seen
+        final_dict["harmonic_mean_final"] = cls.H
+    # Zero-shot learning
+    else:
+        syn_feature, syn_label = generate_syn_feature(netG, ttt_data.unseenclasses, ttt_data.attribute, opt.syn_num)
+        cls = classifier2.CLASSIFIER(syn_feature, util.map_label(syn_label, ttt_data.unseenclasses), ttt_data,
+                                     ttt_data.unseenclasses.size(0), opt.cuda, opt.classifier_lr, 0.5, 25, opt.syn_num, False)
+        acc = cls.acc
+        print('unseen class accuracy= ', acc)
+        final_dict["accuracy_final"] = acc
+
+    if opt.log_online:
+        print(final_dict)
+        logger.log(final_dict)

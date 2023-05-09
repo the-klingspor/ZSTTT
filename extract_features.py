@@ -2,7 +2,7 @@ import torch
 import torchvision.transforms as transforms
 import argparse
 import numpy as np
-import timm
+import os
 
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -16,15 +16,17 @@ parser = argparse.ArgumentParser()
 
 # Dataset and paths
 parser.add_argument('--dataset', type=str, default='CUB', help='CUB')
-parser.add_argument('--backbone_path', type=str, default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/resnet50_cub')
+parser.add_argument('--backbone_path', type=str, default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/resnet50_cub.pth')
 parser.add_argument('--data_path', type=str, default='/mnt/qb/akata/jstrueber72/datasets/CUB/')
 parser.add_argument('--splitdir', type=str, default='/mnt/qb/work/akata/jstrueber72/ZSTTT/data/CUB/')
 parser.add_argument('--class_txt', type=str, default='trainvalclasses.txt')
 parser.add_argument('--attribute_path', type=str, default='/mnt/qb/akata/jstrueber72/datasets/CUB/attributes/class_attribute_labels_continuous.txt')
+parser.add_argument('--include_txt', type=str, default=None)
 
 # Hyper parameters
 parser.add_argument('--image_size', type=int, default=336)
 parser.add_argument('--architecture', type=str, default="resnet50")
+parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
 
 def extract_features(opt, model=None):
     # Hyperparameters
@@ -44,16 +46,13 @@ def extract_features(opt, model=None):
     ])
 
     # Create the data loaders for training and validation
-    dataset = RotationDataset(opt.data_path, opt.splitdir, opt.class_txt, transform=transform)
-    loader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4)
+    dataset = RotationDataset(opt.data_path, opt.splitdir, opt.class_txt, transform=transform, include_txt=opt.include_txt)
+    loader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=4)
 
     # Load the pre-trained ResNet101 model from timm with additional rotation head
     if model == None:
         model = RotationNet(num_classes=dataset.num_classes, architecture=opt.architecture)
-        #model = timm.create_model(opt.architecture, pretrained=True, num_classes=4)
         model.load_state_dict(torch.load(opt.backbone_path))
-        #model.reset_classifier(0)
-        #model = timm.create_model(opt.architecture, pretrained=True, num_classes=0)
 
     model.to(device)
     model.eval()
@@ -75,7 +74,6 @@ def extract_features(opt, model=None):
         # Forward pass
         with torch.no_grad():
             batch_features = model.forward_features(images).cpu().numpy()
-            #batch_features = model(images).cpu().numpy()
 
         # Stack the features and labels into the output arrays
         end_idx = start_idx + len(images)
@@ -85,7 +83,7 @@ def extract_features(opt, model=None):
         # Increment the starting index for the next batch
         start_idx = end_idx
 
-    return features, labels
+    return features, labels, dataset.images
 
 
 def get_zsl_data_collection(opt):
@@ -93,7 +91,7 @@ def get_zsl_data_collection(opt):
 
     # Initialize all data entries
     data = {}
-    #data['images'] = np.array([])
+    data['images'] = np.array([])
     data['features'] = np.array([])
     data['labels'] = np.array([])
     data['trainval_loc'] = np.array([])
@@ -101,22 +99,21 @@ def get_zsl_data_collection(opt):
     data['val_loc'] = np.array([])
     data['test_seen_loc'] = np.array([])
     data['test_unseen_loc'] = np.array([])
-    #data['attributes'] = np.array([])
 
     # Construct class to attribute mapping
-    attribute_mapping = {}
-    with open(opt.attribute_path, 'r') as f:
-        raw_attributes = f.readlines()
+   # with open(opt.attribute_path, 'r') as f:
+   #     raw_attributes = f.readlines()
 
-    attributes = [np.fromstring(attr, dtype=float, sep=' ') for attr in raw_attributes]
-
-    data['attributes'] = np.stack(attributes)
+    #attributes = [np.fromstring(attr, dtype=float, sep=' ') for attr in raw_attributes]
+    #data['attributes'] = np.stack(attributes)
 
     # Classes used for training
     print("Collecting training data")
     opt.class_txt = 'trainclasses1.txt'
-    train_features, train_labels = extract_features(opt)
-    #data['images'] = train_images
+    if opt.include_txt:
+        opt.include_txt = os.path.join(opt.data_path, 'unseen_train.txt')
+    train_features, train_labels, train_images = extract_features(opt)
+    data['images'] = train_images
     data['features'] = train_features
     data['labels'] = train_labels
     end_train_loc = len(train_features)
@@ -129,8 +126,8 @@ def get_zsl_data_collection(opt):
     # Classes used for validation
     print("Collecting validation data")
     opt.class_txt = 'valclasses1.txt'
-    valid_features, valid_labels = extract_features(opt)
-    #data['images'] = np.concatenate([data['images'], valid_images])
+    valid_features, valid_labels, valid_images = extract_features(opt)
+    data['images'] = np.concatenate([data['images'], valid_images])
     data['features'] = np.concatenate([data['features'], valid_features])
     data['labels'] = np.concatenate([data['labels'], valid_labels])
     start_val_loc = end_train_loc
@@ -144,8 +141,9 @@ def get_zsl_data_collection(opt):
     # Classes used for testing
     print("Collecting test data")
     opt.class_txt = 'testclasses.txt'
-    test_features, test_labels = extract_features(opt)
-    #data['images'] = np.concatenate([data['images'], test_images])
+    opt.include_txt = None
+    test_features, test_labels, test_images = extract_features(opt)
+    data['images'] = np.concatenate([data['images'], test_images])
     data['features'] = np.concatenate([data['features'], test_features])
     data['labels'] = np.concatenate([data['labels'], test_labels])
     start_test_loc = end_val_loc
@@ -163,4 +161,4 @@ if __name__ == '__main__':
     data = get_zsl_data_collection(opt)
 
     for key, value in data.items():
-        print(f"Entry: {key} with shape {value.shape}")
+        print(f"Entry: {key} with shape {len(value)}")
