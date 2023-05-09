@@ -4,9 +4,10 @@ import random
 import numpy as np
 import copy
 
-def rotation_ttt_loop(model_input, image, opt):
+
+def rotation_ttt_loop(model, image, opt):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = copy.deepcopy(model_input)
+    model = copy.deepcopy(model)
     model.to(device)
 
     criterion = torch.nn.CrossEntropyLoss()
@@ -15,8 +16,8 @@ def rotation_ttt_loop(model_input, image, opt):
 
     # Training loop using the rotation self-supervision
     losses = []
-    for i in range(opt.n_ttt_loops):
-
+    for i in range(opt.ttt_n_loops):
+        model.train()
         rotated_images, rotation_labels = generate_rotation_batch(image, opt)
         rotated_images = rotated_images.to(device)
         rotation_labels = rotation_labels.to(device)
@@ -32,7 +33,7 @@ def rotation_ttt_loop(model_input, image, opt):
         loss.backward()
         optimizer.step()
 
-        losses.append(loss)
+        losses.append(loss.cpu().detach())
 
     # Single forward pass on original image to extract feature
     model.eval()
@@ -44,10 +45,10 @@ def rotation_ttt_loop(model_input, image, opt):
         transforms.RandomHorizontalFlip(p=0.5)
     ])
 
-    transformed_image = final_transform(image)
+    transformed_image = torch.unsqueeze(final_transform(image), dim=0).to(device)
 
-    feature = model.forward_feature(transformed_image)
-    losses = np.stack(losses)
+    feature = model.forward_features(transformed_image).cpu().detach()
+    losses = torch.stack(losses)
 
     return feature, losses
 
